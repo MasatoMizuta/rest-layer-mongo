@@ -9,6 +9,7 @@ import (
 	"github.com/rs/rest-layer/schema"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // Mongo doesn't support nanoseconds
@@ -53,6 +54,42 @@ func TestInsert(t *testing.T) {
 		return
 	}
 	assert.Equal(t, map[string]interface{}{"foo": "bar", "_id": "1234", "_etag": "etag", "_updated": now}, d)
+
+	// Inserting same item twice should return a conflict error
+	err = h.Insert(context.Background(), items)
+	assert.Equal(t, resource.ErrConflict, err)
+}
+
+func TestInsertWithObjectID(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+	s, err := mgo.Dial("")
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer cleanup(s, "testinsertwithobjectid")()
+	h := NewHandler(s, "testinsertwithobjectid", "test")
+	objID := bson.NewObjectId()
+	items := []*resource.Item{
+		{
+			ID:      objID,
+			ETag:    "etag",
+			Updated: now,
+			Payload: map[string]interface{}{
+				"id":  objID,
+				"foo": "bar",
+			},
+		},
+	}
+	err = h.Insert(context.Background(), items)
+	assert.NoError(t, err)
+	d := map[string]interface{}{}
+	err = s.DB("testinsertwithobjectid").C("test").FindId(objID).One(&d)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, map[string]interface{}{"foo": "bar", "_id": objID, "_etag": "etag", "_updated": now}, d)
 
 	// Inserting same item twice should return a conflict error
 	err = h.Insert(context.Background(), items)

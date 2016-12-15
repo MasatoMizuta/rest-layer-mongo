@@ -68,9 +68,9 @@ func translateQuery(q schema.Query) (bson.M, error) {
 		case schema.NotIn:
 			b[getField(t.Field)] = bson.M{"$nin": valuesToInterface(t.Values)}
 		case schema.Equal:
-			b[getField(t.Field)] = t.Value
+			b[getField(t.Field)] = valueToObjectIDIfNeed(t.Value)
 		case schema.NotEqual:
-			b[getField(t.Field)] = bson.M{"$ne": t.Value}
+			b[getField(t.Field)] = bson.M{"$ne": valueToObjectIDIfNeed(t.Value)}
 		case schema.GreaterThan:
 			b[getField(t.Field)] = bson.M{"$gt": t.Value}
 		case schema.GreaterOrEqual:
@@ -89,7 +89,15 @@ func translateQuery(q schema.Query) (bson.M, error) {
 func valuesToInterface(v []schema.Value) []interface{} {
 	I := make([]interface{}, len(v))
 	for i, _v := range v {
-		I[i] = _v
+		I[i] = valueToObjectIDIfNeed(_v)
 	}
 	return I
+}
+
+func valueToObjectIDIfNeed(v schema.Value) schema.Value {
+	s, ok := v.(string)
+	if !ok || !bson.IsObjectIdHex(s) {
+		return v
+	}
+	return bson.ObjectIdHex(s)
 }

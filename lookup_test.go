@@ -65,6 +65,34 @@ func TestGetQuery(t *testing.T) {
 	assert.Equal(t, bson.M{"$or": []bson.M{bson.M{"f": "foo"}, bson.M{"f": "bar"}}}, b)
 }
 
+func TestGetQueryWithObjectID(t *testing.T) {
+	var b bson.M
+	var err error
+	objID := bson.NewObjectId()
+	objID2 := bson.NewObjectId()
+	b, err = callGetQuery(schema.Query{schema.Equal{Field: "id", Value: objID.Hex()}})
+	assert.NoError(t, err)
+	assert.Equal(t, bson.M{"_id": objID}, b)
+	b, err = callGetQuery(schema.Query{schema.Equal{Field: "f", Value: objID.Hex()}})
+	assert.NoError(t, err)
+	assert.Equal(t, bson.M{"f": objID}, b)
+	b, err = callGetQuery(schema.Query{schema.NotEqual{Field: "f", Value: objID.Hex()}})
+	assert.NoError(t, err)
+	assert.Equal(t, bson.M{"f": bson.M{"$ne": objID}}, b)
+	b, err = callGetQuery(schema.Query{schema.In{Field: "f", Values: []schema.Value{objID.Hex(), objID2.Hex()}}})
+	assert.NoError(t, err)
+	assert.Equal(t, bson.M{"f": bson.M{"$in": []interface{}{objID, objID2}}}, b)
+	b, err = callGetQuery(schema.Query{schema.NotIn{Field: "f", Values: []schema.Value{objID.Hex(), objID2.Hex()}}})
+	assert.NoError(t, err)
+	assert.Equal(t, bson.M{"f": bson.M{"$nin": []interface{}{objID, objID2}}}, b)
+	b, err = callGetQuery(schema.Query{schema.And{schema.Equal{Field: "f", Value: objID.Hex()}, schema.Equal{Field: "f", Value: objID2.Hex()}}})
+	assert.NoError(t, err)
+	assert.Equal(t, bson.M{"$and": []bson.M{bson.M{"f": objID}, bson.M{"f": objID2}}}, b)
+	b, err = callGetQuery(schema.Query{schema.Or{schema.Equal{Field: "f", Value: objID.Hex()}, schema.Equal{Field: "f", Value: objID2.Hex()}}})
+	assert.NoError(t, err)
+	assert.Equal(t, bson.M{"$or": []bson.M{bson.M{"f": objID}, bson.M{"f": objID2}}}, b)
+}
+
 func TestGetQueryInvalid(t *testing.T) {
 	var err error
 	_, err = callGetQuery(schema.Query{UnsupportedExpression{}})
